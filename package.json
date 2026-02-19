@@ -10,15 +10,31 @@
     "format": "biome format --write"
   },
   "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@hookform/resolvers": "^5.2.2",
+    "@mui/icons-material": "^7.3.8",
+    "@mui/material": "^7.3.8",
+    "@mui/x-data-grid": "^8.27.1",
+    "@reduxjs/toolkit": "^2.11.2",
+    "date-fns": "^4.1.0",
+    "dayjs": "^1.11.19",
+    "lodash.debounce": "^4.0.8",
     "next": "16.1.6",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-dom": "19.2.3",
+    "react-hook-form": "^7.71.1",
+    "react-redux": "^9.2.0",
+    "redux-persist": "^6.0.0",
+    "uuid": "^13.0.0",
+    "yup": "^1.7.1"
   },
   "devDependencies": {
     "@biomejs/biome": "2.2.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/uuid": "^10.0.0",
     "babel-plugin-react-compiler": "1.0.0",
     "typescript": "^5"
   }
