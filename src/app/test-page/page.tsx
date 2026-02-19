@@ -409,6 +409,7 @@ export default function ServiceLogsPage() {
                     type="number"
                     size="small"
                     fullWidth
+                    slotProps={{ htmlInput: { min: 0 } }}
                     error={!!errors.odometer}
                     helperText={errors.odometer?.message}
                   />
@@ -418,6 +419,7 @@ export default function ServiceLogsPage() {
                     type="number"
                     size="small"
                     fullWidth
+                    slotProps={{ htmlInput: { min: 0 } }}
                     error={!!errors.engineHours}
                     helperText={errors.engineHours?.message}
                   />
@@ -738,8 +740,24 @@ export default function ServiceLogsPage() {
                 <MenuItem value="emergency">🔴 Emergency</MenuItem>
               </TextField>
               <Stack direction="row" spacing={1}>
-                <TextField {...editForm.register('odometer')} label="Odometer (mi)" type="number" fullWidth size="small" error={!!editForm.formState.errors.odometer} />
-                <TextField {...editForm.register('engineHours')} label="Engine Hours" type="number" fullWidth size="small" error={!!editForm.formState.errors.engineHours} />
+                <TextField 
+                  {...editForm.register('odometer')} 
+                  label="Odometer (mi)" 
+                  type="number" 
+                  fullWidth 
+                  size="small" 
+                  slotProps={{ htmlInput: { min: 0 } }}
+                  error={!!editForm.formState.errors.odometer} 
+                />
+                <TextField 
+                  {...editForm.register('engineHours')} 
+                  label="Engine Hours" 
+                  type="number" 
+                  fullWidth 
+                  size="small" 
+                  slotProps={{ htmlInput: { min: 0 } }}
+                  error={!!editForm.formState.errors.engineHours} 
+                />
               </Stack>
               <Stack direction="row" spacing={1}>
                 <TextField 

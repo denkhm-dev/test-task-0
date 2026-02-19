@@ -5,8 +5,8 @@ export const serviceLogSchema = yup.object({
   providerId: yup.string().required('Provider ID required'),
   serviceOrder: yup.string().required('Order required'),
   carId: yup.string().required('Car ID required'),
-  odometer: yup.number().typeError('Must be number').required(),
-  engineHours: yup.number().typeError('Must be number').required(),
+  odometer: yup.number().typeError('Must be number').min(0, 'Cannot be negative').required(),
+  engineHours: yup.number().typeError('Must be number').min(0, 'Cannot be negative').required(),
   startDate: yup.string().required(),
   endDate: yup.string()
     .required()
