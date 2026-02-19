@@ -178,22 +178,19 @@ export default function ServiceLogsPage() {
 
   const watchedValues = watch();
 
-  // ─── Синхронізація форми з Redux ──────────────────────
-  // Використовуємо useEffect, який спрацьовує лише при зміні активної чернетки
-  // або при початковому завантаженні (mount), щоб уникнути нескінченного циклу
+
   useEffect(() => {
     const activeDraft = drafts.find(d => d.id === activeDraftId);
     const dataToReset = activeDraft ? { ...activeDraft.data } : { ...currentForm };
 
-    // Забезпечуємо дати за замовчуванням, якщо вони порожні
+
     if (!dataToReset.startDate) dataToReset.startDate = defaultValues.startDate;
     if (!dataToReset.endDate) dataToReset.endDate = defaultValues.endDate;
 
     reset({ ...defaultValues, ...dataToReset });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [activeDraftId, reset]); 
 
-  // ─── Авто-збереження (чернетка або основна форма) ───
   useEffect(() => {
     const sub = watch((value) => {
       if (activeDraftId) {
@@ -207,19 +204,19 @@ export default function ServiceLogsPage() {
     return () => sub.unsubscribe();
   }, [watch, dispatch, activeDraftId]);
 
-  // ─── Авто-оновлення endDate (основна форма) ───────────
+
   useEffect(() => {
     if (watchedValues.startDate) {
       const start = dayjs(watchedValues.startDate);
       const currentEnd = dayjs(watchedValues.endDate);
-      // Завжди тримаємо кінець принаймні на 1 день попереду
+
       if (!watchedValues.endDate || !currentEnd.isAfter(start)) {
         setValue('endDate', start.add(1, 'day').format('YYYY-MM-DD'));
       }
     }
   }, [watchedValues.startDate, setValue, watchedValues.endDate]);
 
-  // ─── Авто-оновлення endDate (форма редагування) ───────
+
   const editStartDate = editForm.watch('startDate');
   const editEndDate = editForm.watch('endDate');
   useEffect(() => {
@@ -232,7 +229,6 @@ export default function ServiceLogsPage() {
     }
   }, [editStartDate, editForm, editEndDate]);
 
-  // ─── Авто-оновлення dateRange (фільтри) ───────────────
   useEffect(() => {
     if (dateRange.start && dateRange.end) {
       const start = dayjs(dateRange.start);
@@ -243,14 +239,14 @@ export default function ServiceLogsPage() {
     }
   }, [dateRange.start, dateRange.end]);
 
-  // ─── Обробники кнопок ─────────────────────────────────
+
   const handleCreateDraft = useCallback(() => {
     dispatch(createDraft({
       startDate: dayjs().format('YYYY-MM-DD'),
       endDate: dayjs().add(1, 'day').format('YYYY-MM-DD'),
       type: 'planned',
     }));
-    // reset field values is handled by useEffect on activeDraftId change
+
   }, [dispatch]);
 
   const handleDeleteDraft = useCallback(() => {
@@ -269,10 +265,10 @@ export default function ServiceLogsPage() {
     reset(defaultValues);
   }, [dispatch, reset, defaultValues]);
 
-  // ─── Фільтрація таблиці ───────────────────────────────
+
   const filteredLogs = useMemo(() => {
     return logs.filter(log => {
-      // Пошук по ВСІХ ключових полях
+
       const q = search.toLowerCase();
       const matchesSearch = !q ||
         log.providerId.toLowerCase().includes(q) ||
@@ -295,12 +291,10 @@ export default function ServiceLogsPage() {
     });
   }, [logs, search, filterType, dateRange]);
 
-  // ═══════════════════════════════════════════════════════
-  // РЕНДЕР
-  // ═══════════════════════════════════════════════════════
+
   return (
     <Box sx={sx.page}>
-      {/* ────── ЗАГОЛОВОК ────── */}
+
       <Box sx={sx.header}>
         <NoteAdd sx={{ fontSize: 36, color: '#004aad' }} />
         <Box>
@@ -312,9 +306,7 @@ export default function ServiceLogsPage() {
       </Box>
 
       <Grid container spacing={3}>
-        {/* ═══════════════════════════════════════════════ */}
-        {/* ЛІВА ЧАСТИНА: ФОРМА + ЧЕРНЕТКИ                 */}
-        {/* ═══════════════════════════════════════════════ */}
+
         <Grid size={{ xs: 12, md: 5, lg: 4 }}>
           <Paper sx={sx.formCard}>
             {/* ── Статус збереження ── */}
@@ -525,9 +517,7 @@ export default function ServiceLogsPage() {
           </Paper>
         </Grid>
 
-        {/* ═══════════════════════════════════════════════ */}
-        {/* ПРАВА ЧАСТИНА: ФІЛЬТРИ + ТАБЛИЦЯ               */}
-        {/* ═══════════════════════════════════════════════ */}
+
         <Grid size={{ xs: 12, md: 7, lg: 8 }}>
           {/* ── Фільтри ── */}
           <Paper sx={sx.filterBar}>
@@ -712,9 +702,7 @@ export default function ServiceLogsPage() {
         </Grid>
       </Grid>
 
-      {/* ═══════════════════════════════════════════════ */}
-      {/* ДІАЛОГ РЕДАГУВАННЯ                               */}
-      {/* ═══════════════════════════════════════════════ */}
+
       <Dialog
         open={Boolean(selectedLog)}
         onClose={() => setSelectedLog(null)}
@@ -807,7 +795,6 @@ export default function ServiceLogsPage() {
         </DialogActions>
       </Dialog>
 
-      {/* ── Підтвердження очищення чернеток ── */}
       <Dialog open={showClearConfirm} onClose={() => setShowClearConfirm(false)} PaperProps={{ sx: { borderRadius: 3 } }}>
         <DialogTitle sx={{ fontWeight: 700 }}>Clear All Drafts?</DialogTitle>
         <DialogContent dividers>
