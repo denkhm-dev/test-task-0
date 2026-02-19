@@ -26,6 +26,7 @@ import {
   addLog,
   updateLog,
   deleteLog,
+  updateCurrentForm,
   ServiceLog,
   Draft,
 } from '@/shared/store/service-logs-slice';
@@ -125,7 +126,7 @@ const sx = {
 // ═══════════════════════════════════════════════════════
 export default function ServiceLogsPage() {
   const dispatch = useDispatch();
-  const { logs, drafts = [], activeDraftId = null, isSaving } = useSelector(
+  const { logs, drafts = [], activeDraftId = null, currentForm = {}, isSaving } = useSelector(
     (state: RootState) => state.serviceLogs
   );
 
@@ -134,15 +135,16 @@ export default function ServiceLogsPage() {
     [drafts, activeDraftId]
   );
 
-  // Стани фільтрів
+
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
 
-  // Стан для діалогу редагування
-  const [selectedLog, setSelectedLog] = useState<ServiceLog | null>(null);
 
-  // ─── Форма створення ──────────────────────────────────
+  const [selectedLog, setSelectedLog] = useState<ServiceLog | null>(null);
+  const [logToDelete, setLogToDelete] = useState<string | null>(null);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+  
   const defaultValues: FormValues = useMemo(() => ({
     providerId: '',
     serviceOrder: '',
@@ -164,7 +166,9 @@ export default function ServiceLogsPage() {
     formState: { errors },
   } = useForm<FormValues>({
     resolver: yupResolver(serviceLogSchema) as any,
-    defaultValues: activeDraft ? { ...defaultValues, ...activeDraft.data } : defaultValues,
+    defaultValues: activeDraft 
+      ? { ...defaultValues, ...activeDraft.data } 
+      : { ...defaultValues, ...currentForm },
   });
 
   // Форма для редагування
@@ -174,33 +178,70 @@ export default function ServiceLogsPage() {
 
   const watchedValues = watch();
 
-  // ─── Синхронізація форми з активною чернеткою ─────────
+  // ─── Синхронізація форми з Redux ──────────────────────
+  // Використовуємо useEffect, який спрацьовує лише при зміні активної чернетки
+  // або при початковому завантаженні (mount), щоб уникнути нескінченного циклу
   useEffect(() => {
-    if (activeDraft) {
-      reset({ ...defaultValues, ...activeDraft.data });
-    } else {
-      reset(defaultValues);
-    }
-  }, [activeDraftId]); // eslint-disable-line react-hooks/exhaustive-deps
+    const activeDraft = drafts.find(d => d.id === activeDraftId);
+    const dataToReset = activeDraft ? { ...activeDraft.data } : { ...currentForm };
 
-  // ─── Авто-збереження чернетки ─────────────────────────
+    // Забезпечуємо дати за замовчуванням, якщо вони порожні
+    if (!dataToReset.startDate) dataToReset.startDate = defaultValues.startDate;
+    if (!dataToReset.endDate) dataToReset.endDate = defaultValues.endDate;
+
+    reset({ ...defaultValues, ...dataToReset });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeDraftId, reset]); 
+
+  // ─── Авто-збереження (чернетка або основна форма) ───
   useEffect(() => {
-    if (!activeDraftId) return;
     const sub = watch((value) => {
-      dispatch(updateDraft(value));
+      if (activeDraftId) {
+        dispatch(updateDraft(value));
+      } else {
+        dispatch(updateCurrentForm(value));
+      }
       const t = setTimeout(() => dispatch(stopSaving()), 800);
       return () => clearTimeout(t);
     });
     return () => sub.unsubscribe();
   }, [watch, dispatch, activeDraftId]);
 
-  // ─── Авто-оновлення endDate ───────────────────────────
+  // ─── Авто-оновлення endDate (основна форма) ───────────
   useEffect(() => {
     if (watchedValues.startDate) {
-      const next = dayjs(watchedValues.startDate).add(1, 'day').format('YYYY-MM-DD');
-      setValue('endDate', next);
+      const start = dayjs(watchedValues.startDate);
+      const currentEnd = dayjs(watchedValues.endDate);
+      // Завжди тримаємо кінець принаймні на 1 день попереду
+      if (!watchedValues.endDate || !currentEnd.isAfter(start)) {
+        setValue('endDate', start.add(1, 'day').format('YYYY-MM-DD'));
+      }
     }
-  }, [watchedValues.startDate, setValue]);
+  }, [watchedValues.startDate, setValue, watchedValues.endDate]);
+
+  // ─── Авто-оновлення endDate (форма редагування) ───────
+  const editStartDate = editForm.watch('startDate');
+  const editEndDate = editForm.watch('endDate');
+  useEffect(() => {
+    if (editStartDate) {
+      const start = dayjs(editStartDate);
+      const currentEnd = dayjs(editEndDate);
+      if (!editEndDate || !currentEnd.isAfter(start)) {
+        editForm.setValue('endDate', start.add(1, 'day').format('YYYY-MM-DD'));
+      }
+    }
+  }, [editStartDate, editForm, editEndDate]);
+
+  // ─── Авто-оновлення dateRange (фільтри) ───────────────
+  useEffect(() => {
+    if (dateRange.start && dateRange.end) {
+      const start = dayjs(dateRange.start);
+      const end = dayjs(dateRange.end);
+      if (!end.isAfter(start)) {
+        setDateRange(p => ({ ...p, end: start.add(1, 'day').format('YYYY-MM-DD') }));
+      }
+    }
+  }, [dateRange.start, dateRange.end]);
 
   // ─── Обробники кнопок ─────────────────────────────────
   const handleCreateDraft = useCallback(() => {
@@ -209,6 +250,7 @@ export default function ServiceLogsPage() {
       endDate: dayjs().add(1, 'day').format('YYYY-MM-DD'),
       type: 'planned',
     }));
+    // reset field values is handled by useEffect on activeDraftId change
   }, [dispatch]);
 
   const handleDeleteDraft = useCallback(() => {
@@ -223,6 +265,7 @@ export default function ServiceLogsPage() {
 
   const onSubmit = useCallback((data: FormValues) => {
     dispatch(addLog(data));
+    dispatch(updateCurrentForm({}));
     reset(defaultValues);
   }, [dispatch, reset, defaultValues]);
 
@@ -404,7 +447,10 @@ export default function ServiceLogsPage() {
                     label="End Date"
                     fullWidth
                     size="small"
-                    slotProps={{ inputLabel: { shrink: true } }}
+                    slotProps={{ 
+                      inputLabel: { shrink: true },
+                      htmlInput: { min: watchedValues.startDate ? dayjs(watchedValues.startDate).add(1, 'day').format('YYYY-MM-DD') : undefined }
+                    }}
                     error={!!errors.endDate}
                   />
                 </Stack>
@@ -466,7 +512,7 @@ export default function ServiceLogsPage() {
                       color="error"
                       fullWidth
                       startIcon={<DeleteSweep />}
-                      onClick={handleClearAllDrafts}
+                      onClick={() => setShowClearConfirm(true)}
                       disabled={drafts.length === 0}
                       sx={{ borderRadius: 2, fontWeight: 600 }}
                     >
@@ -537,7 +583,10 @@ export default function ServiceLogsPage() {
                   fullWidth
                   label="To"
                   value={dateRange.end}
-                  slotProps={{ inputLabel: { shrink: true } }}
+                  slotProps={{ 
+                    inputLabel: { shrink: true },
+                    htmlInput: { min: dateRange.start ? dayjs(dateRange.start).add(1, 'day').format('YYYY-MM-DD') : undefined }
+                  }}
                   onChange={(e) => setDateRange(p => ({ ...p, end: e.target.value }))}
                 />
               </Grid>
@@ -642,7 +691,7 @@ export default function ServiceLogsPage() {
                           <IconButton
                             size="small"
                             color="error"
-                            onClick={() => dispatch(deleteLog(log.id))}
+                            onClick={() => setLogToDelete(log.id)}
                           >
                             <Delete fontSize="small" />
                           </IconButton>
@@ -705,8 +754,25 @@ export default function ServiceLogsPage() {
                 <TextField {...editForm.register('engineHours')} label="Engine Hours" type="number" fullWidth size="small" error={!!editForm.formState.errors.engineHours} />
               </Stack>
               <Stack direction="row" spacing={1}>
-                <TextField {...editForm.register('startDate')} type="date" label="Start" fullWidth size="small" slotProps={{ inputLabel: { shrink: true } }} />
-                <TextField {...editForm.register('endDate')} type="date" label="End" fullWidth size="small" slotProps={{ inputLabel: { shrink: true } }} />
+                <TextField 
+                  {...editForm.register('startDate')} 
+                  type="date" 
+                  label="Start" 
+                  fullWidth 
+                  size="small" 
+                  slotProps={{ inputLabel: { shrink: true } }} 
+                />
+                <TextField 
+                  {...editForm.register('endDate')} 
+                  type="date" 
+                  label="End" 
+                  fullWidth 
+                  size="small" 
+                  slotProps={{ 
+                    inputLabel: { shrink: true },
+                    htmlInput: { min: editForm.watch('startDate') ? dayjs(editForm.watch('startDate')).add(1, 'day').format('YYYY-MM-DD') : undefined }
+                  }} 
+                />
               </Stack>
               <TextField {...editForm.register('serviceDescription')} label="Description" multiline rows={3} fullWidth error={!!editForm.formState.errors.serviceDescription} helperText={editForm.formState.errors.serviceDescription?.message} />
             </Stack>
@@ -724,6 +790,36 @@ export default function ServiceLogsPage() {
             </Button>
           </DialogActions>
         </Box>
+      </Dialog>
+
+      {/* ── Підтвердження видалення логу ── */}
+      <Dialog open={Boolean(logToDelete)} onClose={() => setLogToDelete(null)} PaperProps={{ sx: { borderRadius: 3 } }}>
+        <DialogTitle sx={{ fontWeight: 700 }}>Delete Service Log?</DialogTitle>
+        <DialogContent dividers>
+          <Typography>Are you sure you want to permanently delete this record? This action cannot be undone.</Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={() => setLogToDelete(null)} sx={{ borderRadius: 2 }}>Cancel</Button>
+          <Button color="error" variant="contained" onClick={() => {
+            if (logToDelete) dispatch(deleteLog(logToDelete));
+            setLogToDelete(null);
+          }} sx={{ borderRadius: 2, fontWeight: 700 }}>Delete</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── Підтвердження очищення чернеток ── */}
+      <Dialog open={showClearConfirm} onClose={() => setShowClearConfirm(false)} PaperProps={{ sx: { borderRadius: 3 } }}>
+        <DialogTitle sx={{ fontWeight: 700 }}>Clear All Drafts?</DialogTitle>
+        <DialogContent dividers>
+          <Typography>This will remove all your unsaved drafts. Continue?</Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={() => setShowClearConfirm(false)} sx={{ borderRadius: 2 }}>Cancel</Button>
+          <Button color="error" variant="contained" onClick={() => {
+            dispatch(clearAllDrafts());
+            setShowClearConfirm(false);
+          }} sx={{ borderRadius: 2, fontWeight: 700 }}>Clear All</Button>
+        </DialogActions>
       </Dialog>
     </Box>
   );

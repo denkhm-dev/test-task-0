@@ -28,6 +28,7 @@ interface ServiceState {
   logs: ServiceLog[];
   drafts: Draft[];
   activeDraftId: string | null;
+  currentForm: Partial<ServiceLog>;
   isSaving: boolean;
 }
 
@@ -35,6 +36,7 @@ const initialState: ServiceState = {
   logs: [],
   drafts: [],
   activeDraftId: null,
+  currentForm: {},
   isSaving: false,
 };
 
@@ -44,6 +46,7 @@ export const serviceLogsSlice = createSlice({
   reducers: {
     // Створення нової чернетки
     createDraft: (state, action: PayloadAction<Partial<ServiceLog> | undefined>) => {
+      if (!state.drafts) state.drafts = [];
       const newDraft: Draft = {
         id: uuidv4(),
         data: action.payload ?? {},
@@ -52,6 +55,7 @@ export const serviceLogsSlice = createSlice({
       };
       state.drafts.push(newDraft);
       state.activeDraftId = newDraft.id;
+      state.currentForm = {};
     },
 
     // Встановлення активної чернетки
@@ -61,6 +65,7 @@ export const serviceLogsSlice = createSlice({
 
     // Оновлення даних активної чернетки (авто-збереження)
     updateDraft: (state, action: PayloadAction<Partial<ServiceLog>>) => {
+      if (!state.drafts) state.drafts = [];
       const draft = state.drafts.find(d => d.id === state.activeDraftId);
       if (draft) {
         draft.data = { ...draft.data, ...action.payload };
@@ -76,6 +81,7 @@ export const serviceLogsSlice = createSlice({
 
     // Видалення активної чернетки
     deleteDraft: (state) => {
+      if (!state.drafts) state.drafts = [];
       state.drafts = state.drafts.filter(d => d.id !== state.activeDraftId);
       state.activeDraftId = state.drafts.length > 0 ? state.drafts[0].id : null;
     },
@@ -88,6 +94,8 @@ export const serviceLogsSlice = createSlice({
 
     // Додавання нового логу (з форми)
     addLog: (state, action: PayloadAction<Omit<ServiceLog, 'id'>>) => {
+      if (!state.logs) state.logs = [];
+      if (!state.drafts) state.drafts = [];
       state.logs.unshift({ ...action.payload, id: uuidv4() });
       // Видаляємо активну чернетку після створення логу
       if (state.activeDraftId) {
@@ -96,8 +104,9 @@ export const serviceLogsSlice = createSlice({
       }
     },
 
-    // Редагування логу
+
     updateLog: (state, action: PayloadAction<ServiceLog>) => {
+      if (!state.logs) state.logs = [];
       const index = state.logs.findIndex(log => log.id === action.payload.id);
       if (index !== -1) {
         state.logs[index] = action.payload;
@@ -106,7 +115,14 @@ export const serviceLogsSlice = createSlice({
 
     // Видалення логу
     deleteLog: (state, action: PayloadAction<string>) => {
+      if (!state.logs) state.logs = [];
       state.logs = state.logs.filter(log => log.id !== action.payload);
+    },
+
+    // Оновлення поточної форми (коли немає чернетки)
+    updateCurrentForm: (state, action: PayloadAction<Partial<ServiceLog>>) => {
+      state.currentForm = action.payload;
+      state.isSaving = true;
     },
   },
 });
@@ -121,6 +137,7 @@ export const {
   addLog,
   updateLog,
   deleteLog,
+  updateCurrentForm,
 } = serviceLogsSlice.actions;
 
 export default serviceLogsSlice.reducer;
